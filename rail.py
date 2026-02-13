@@ -1,6 +1,8 @@
+import math
+
 import cv2
 import numpy as np
-import math
+
 
 # ----------------------------
 # Helpers
@@ -10,12 +12,14 @@ def ema(prev, new, alpha=0.2):
         return new
     return prev * (1 - alpha) + new * alpha
 
-def draw_line_from_mb(img, m, b, y1, y2, color=(0,255,0), thickness=3):
+
+def draw_line_from_mb(img, m, b, y1, y2, color=(0, 255, 0), thickness=3):
     if m is None or abs(m) < 1e-6:
         return
     x1 = int((y1 - b) / m)
     x2 = int((y2 - b) / m)
     cv2.line(img, (x1, int(y1)), (x2, int(y2)), color, thickness)
+
 
 def fit_weighted_line(segments):
     if not segments:
@@ -37,13 +41,14 @@ def fit_weighted_line(segments):
     Sxx = np.sum(W * X * X)
     Sxy = np.sum(W * X * Y)
 
-    denom = (Sw * Sxx - Sx * Sx)
+    denom = Sw * Sxx - Sx * Sx
     if abs(denom) < 1e-6:
         return None
 
     m = (Sw * Sxy - Sx * Sy) / denom
     b = (Sy - m * Sx) / Sw
     return float(m), float(b)
+
 
 def x_at_y(x1, y1, x2, y2, y):
     dx = x2 - x1
@@ -57,15 +62,21 @@ def x_at_y(x1, y1, x2, y2, y):
     x = (y - b) / m
     return x, m, b
 
+
 # ----------------------------
 # Main detection
 # ----------------------------
-def detect_rails(frame_bgr, debug=False,
-                 canny_low=60, canny_high=140,
-                 roi_top_ratio=0.65,
-                 min_len=60, max_gap=25,
-                 slope_min=0.35,
-                 split_x_ratio=0.5):
+def detect_rails(
+    frame_bgr,
+    debug=False,
+    canny_low=60,
+    canny_high=140,
+    roi_top_ratio=0.65,
+    min_len=60,
+    max_gap=25,
+    slope_min=0.35,
+    split_x_ratio=0.5,
+):
     h, w = frame_bgr.shape[:2]
     overlay = frame_bgr.copy()
 
@@ -83,10 +94,7 @@ def detect_rails(frame_bgr, debug=False,
     edges = cv2.erode(edges, kernel, iterations=1)
 
     lines = cv2.HoughLinesP(
-        edges, 1, np.pi/180,
-        threshold=70,
-        minLineLength=min_len,
-        maxLineGap=max_gap
+        edges, 1, np.pi / 180, threshold=70, minLineLength=min_len, maxLineGap=max_gap
     )
 
     cx_center = w * 0.5
@@ -139,7 +147,7 @@ def detect_rails(frame_bgr, debug=False,
             if not (bottom_min <= x_bot <= bottom_max):
                 continue
 
-            if not (-0.2*w <= x_bot <= 1.2*w):
+            if not (-0.2 * w <= x_bot <= 1.2 * w):
                 continue
 
             candidates.append((x1, y1, x2, y2, length, x_bot, m))
@@ -156,15 +164,37 @@ def detect_rails(frame_bgr, debug=False,
     right_segments = sorted(right_segments, key=lambda s: s[4], reverse=True)[:2]
 
     if debug:
-        cv2.rectangle(overlay, (0, y0), (w-1, h-1), (255, 255, 255), 1)
+        cv2.rectangle(overlay, (0, y0), (w - 1, h - 1), (255, 255, 255), 1)
 
-        cv2.line(overlay, (int(bottom_min), y_bottom), (int(bottom_min), y_bottom - 40), (255,255,255), 2)
-        cv2.line(overlay, (int(bottom_max), y_bottom), (int(bottom_max), y_bottom - 40), (255,255,255), 2)
+        cv2.line(
+            overlay,
+            (int(bottom_min), y_bottom),
+            (int(bottom_min), y_bottom - 40),
+            (255, 255, 255),
+            2,
+        )
+        cv2.line(
+            overlay,
+            (int(bottom_max), y_bottom),
+            (int(bottom_max), y_bottom - 40),
+            (255, 255, 255),
+            2,
+        )
 
-        cv2.line(overlay, (int(vp_min), y_top), (int(vp_min), y_top + 25), (255,255,255), 2)
-        cv2.line(overlay, (int(vp_max), y_top), (int(vp_max), y_top + 25), (255,255,255), 2)
+        cv2.line(
+            overlay, (int(vp_min), y_top), (int(vp_min), y_top + 25), (255, 255, 255), 2
+        )
+        cv2.line(
+            overlay, (int(vp_max), y_top), (int(vp_max), y_top + 25), (255, 255, 255), 2
+        )
 
-        cv2.line(overlay, (int(split_x), y_bottom), (int(split_x), y_bottom - 60), (255,255,255), 2)
+        cv2.line(
+            overlay,
+            (int(split_x), y_bottom),
+            (int(split_x), y_bottom - 60),
+            (255, 255, 255),
+            2,
+        )
 
         for x1, y1, x2, y2, _ in left_segments:
             cv2.line(overlay, (x1, y1), (x2, y2), (255, 0, 0), 3)
@@ -173,15 +203,22 @@ def detect_rails(frame_bgr, debug=False,
 
         # Debug counts pour comprendre le “rien détecté”
         nb_lines = 0 if lines is None else len(lines)
-        cv2.putText(overlay, f"lines={nb_lines} cand={len(candidates)} L={len(left_segments)} R={len(right_segments)}",
-                    (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+        cv2.putText(
+            overlay,
+            f"lines={nb_lines} cand={len(candidates)} L={len(left_segments)} R={len(right_segments)}",
+            (15, 35),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (255, 255, 255),
+            2,
+        )
 
     return overlay, edges
 
 
 def main():
-    source = "videoRgb.mp4"
-    cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
+    source = "videoRgb.avi"
+    cap = cv2.VideoCapture(source)
     if not cap.isOpened():
         raise RuntimeError(f"Impossible d'ouvrir la source vidéo : {source}")
 
@@ -201,7 +238,7 @@ def main():
         cv2.imshow("Edges (ROI)", edges)
 
         key = cv2.waitKey(1) & 0xFF
-        if key in (27, ord('q')):
+        if key in (27, ord("q")):
             break
 
     cap.release()
