@@ -2,6 +2,7 @@ import math
 
 import cv2
 import numpy as np
+from cv2.typing import MatLike
 
 
 # ----------------------------
@@ -63,6 +64,23 @@ def x_at_y(x1, y1, x2, y2, y):
     return x, m, b
 
 
+def start_rail(bottom_min: int, bottom_max: int, split_x: int, edges: MatLike):
+    # Image dimension = (378 * 1920)
+    # bottom left border = edges[377][864]
+    # bottom right border =  edges[377][1036]
+    left = split_x
+    right = split_x
+    while right < bottom_max and edges[377][right] != 255:
+        right += 1
+    if right == bottom_max:
+        print("Right border not found")
+    while left > bottom_min and edges[377][left] != 255:
+        left -= 1
+    if left == bottom_min:
+        print("Left border not found")
+    print(f"center = {split_x}, left,right = ({left},{right})")
+
+
 # ----------------------------
 # Main detection
 # ----------------------------
@@ -93,28 +111,28 @@ def detect_rails(
     edges = cv2.dilate(edges, kernel, iterations=1)
     edges = cv2.erode(edges, kernel, iterations=1)
 
-    lines = cv2.HoughLinesP(
-        edges, 1, np.pi / 180, threshold=70, minLineLength=min_len, maxLineGap=max_gap
-    )
+    # lines = cv2.HoughLinesP(
+    #    edges, 1, np.pi / 180, threshold=70, minLineLength=min_len, maxLineGap=max_gap
+    # )
 
+    lines = None
     cx_center = w * 0.5
     y_top = y0
     y_bottom = h - 1
 
     # Point de fuite
-    vp_min = w * 0.488
+    vp_min = w * 0.488  # c'est quoi ces valeurs ?? 0.488 il sort d'ou ?
     vp_max = w * 0.503
     max_vp_dist = w * 0.22
 
     # Bande bas
-    bottom_min = w * 0.45
-    bottom_max = w * 0.54
-    if bottom_min > bottom_max:
-        bottom_min, bottom_max = bottom_max, bottom_min
+    bottom_min = int(w * 0.45)
+    bottom_max = int(w * 0.54)
 
     min_abs_slope = max(slope_min, 0.45)
-    split_x = w * split_x_ratio
+    split_x = int(w * split_x_ratio)
 
+    start_rail(bottom_min, bottom_max, split_x, edges)
     candidates = []
 
     if lines is not None:
@@ -166,14 +184,14 @@ def detect_rails(
     if debug:
         cv2.rectangle(overlay, (0, y0), (w - 1, h - 1), (255, 255, 255), 1)
 
-        cv2.line(
+        cv2.line(  # Bottom left line
             overlay,
             (int(bottom_min), y_bottom),
             (int(bottom_min), y_bottom - 40),
             (255, 255, 255),
             2,
         )
-        cv2.line(
+        cv2.line(  # Bottom right border
             overlay,
             (int(bottom_max), y_bottom),
             (int(bottom_max), y_bottom - 40),
@@ -181,14 +199,14 @@ def detect_rails(
             2,
         )
 
-        cv2.line(
+        cv2.line(  # Top left border
             overlay, (int(vp_min), y_top), (int(vp_min), y_top + 25), (255, 255, 255), 2
         )
-        cv2.line(
+        cv2.line(  # Top right border
             overlay, (int(vp_max), y_top), (int(vp_max), y_top + 25), (255, 255, 255), 2
         )
 
-        cv2.line(
+        cv2.line(  # Bottom center
             overlay,
             (int(split_x), y_bottom),
             (int(split_x), y_bottom - 60),
