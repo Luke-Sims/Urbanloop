@@ -1,4 +1,5 @@
 import math
+from typing import List, Tuple
 
 import cv2
 import numpy as np
@@ -79,6 +80,35 @@ def start_rail(bottom_min: int, bottom_max: int, split_x: int, edges: MatLike):
     if left == bottom_min:
         print("Left border not found")
     print(f"center = {split_x}, left,right = ({left},{right})")
+    return left, right
+
+
+# TODO: approximer par polynome
+# TODO: couper approximation si ecart trop grand sur courbe
+def detect_next_one(list: List[Tuple[int, int]], edges: MatLike):
+    y: int = list[-1][0] - list[-2][0]
+    x: int = list[-1][1] - list[-2][1]
+    if (
+        edges[list[-1][0] + y, list[-1][1] + x] == 255
+        and (list[-1][0] + y, list[-1][1] + x) not in list
+    ):
+        list.append((list[-1][0] + y, list[-1][1] + x))
+        print("add ", (list[-1][0] + y, list[-1][1] + x))
+    elif (
+        edges[list[-1][0], list[-1][1] + x] == 255
+        and (list[-1][0], list[-1][1] + x) not in list
+    ):
+        list.append((list[-1][0], list[-1][1] + x))
+        print("add ", (list[-1][0], list[-1][1] + x))
+    elif (
+        edges[list[-1][0] + y, list[-1][1]] == 255
+        and (list[-1][0] + y, list[-1][1]) not in list
+    ):
+        list.append((list[-1][0] + y, list[-1][1]))
+        print("add ", (list[-1][0] + y, list[-1][1]))
+    else:
+        print("stop here")
+        list.append((-1, -1))
 
 
 # ----------------------------
@@ -132,7 +162,15 @@ def detect_rails(
     min_abs_slope = max(slope_min, 0.45)
     split_x = int(w * split_x_ratio)
 
-    start_rail(bottom_min, bottom_max, split_x, edges)
+    left, right = start_rail(bottom_min, bottom_max, split_x, edges)
+    left_list: List[Tuple[int, int]] = [(377, left), (376, left)]
+    while left_list[-1] != (-1, -1):
+        detect_next_one(left_list, edges)
+    right_list: List[Tuple[int, int]] = [(377, right), (376, right)]
+    while left_list[-1] != (-1, -1):
+        detect_next_one(right_list, edges)
+    print("Right_list = ", right_list[:-1])
+    """
     candidates = []
 
     if lines is not None:
@@ -169,7 +207,6 @@ def detect_rails(
                 continue
 
             candidates.append((x1, y1, x2, y2, length, x_bot, m))
-
     left_segments, right_segments = [], []
     for x1, y1, x2, y2, length, x_bot, m in candidates:
         if x_bot < split_x:
@@ -180,6 +217,7 @@ def detect_rails(
     # ✅ GARDER SEULEMENT LES 2 PLUS LONGS PAR CÔTÉ
     left_segments = sorted(left_segments, key=lambda s: s[4], reverse=True)[:2]
     right_segments = sorted(right_segments, key=lambda s: s[4], reverse=True)[:2]
+    """
 
     if debug:
         cv2.rectangle(overlay, (0, y0), (w - 1, h - 1), (255, 255, 255), 1)
@@ -213,13 +251,17 @@ def detect_rails(
             (255, 255, 255),
             2,
         )
-
-        for x1, y1, x2, y2, _ in left_segments:
+        x2, y2 = 377, left
+        for x1, y1 in left_list:
             cv2.line(overlay, (x1, y1), (x2, y2), (255, 0, 0), 3)
-        for x1, y1, x2, y2, _ in right_segments:
+            x2, y2 = x1, y1
+        x2, y2 = 377, right
+        for x1, y1 in right_list:
             cv2.line(overlay, (x1, y1), (x2, y2), (0, 0, 255), 3)
+            x2, y2 = x1, y1
 
         # Debug counts pour comprendre le “rien détecté”
+        """
         nb_lines = 0 if lines is None else len(lines)
         cv2.putText(
             overlay,
@@ -230,6 +272,7 @@ def detect_rails(
             (255, 255, 255),
             2,
         )
+        """
 
     return overlay, edges
 
