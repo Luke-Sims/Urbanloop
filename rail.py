@@ -255,11 +255,11 @@ def detect_rails(
         )
         y2, x2 = 377, left
         for y1, x1 in left_list:
-            cv2.line(overlay, (x1, y1 + 700), (x2, y2 + 700), (255, 0, 0), 3)
+            cv2.line(overlay, (x1, y1 + y0), (x2, y2 + y0), (255, 0, 0), 3)
             y2, x2 = y1, x1
         y2, x2 = 377, right
         for y1, x1 in right_list:
-            cv2.line(overlay, (x1, y1 + 700), (x2, y2 + 700), (0, 0, 255), 3)
+            cv2.line(overlay, (x1, y1 + y0), (x2, y2 + y0), (0, 0, 255), 3)
             y2, x2 = y1, x1
 
         # Debug counts pour comprendre le “rien détecté”
