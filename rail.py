@@ -169,7 +169,9 @@ def detect_rails(
     right_list: List[Tuple[int, int]] = [(377, right), (376, right)]
     while left_list[-1] != (-1, -1):
         detect_next_one(right_list, edges)
-    print("Right_list = ", right_list[:-1])
+    left_list, right_list = left_list[:-1], right_list[:-1]
+    print("Left_list = ", left_list)
+    print("Right_list = ", right_list)
     """
     candidates = []
 
@@ -251,14 +253,14 @@ def detect_rails(
             (255, 255, 255),
             2,
         )
-        x2, y2 = 377, left
-        for x1, y1 in left_list:
-            cv2.line(overlay, (x1, y1), (x2, y2), (255, 0, 0), 3)
-            x2, y2 = x1, y1
-        x2, y2 = 377, right
-        for x1, y1 in right_list:
-            cv2.line(overlay, (x1, y1), (x2, y2), (0, 0, 255), 3)
-            x2, y2 = x1, y1
+        y2, x2 = 377, left
+        for y1, x1 in left_list:
+            cv2.line(overlay, (x1, y1 + 700), (x2, y2 + 700), (255, 0, 0), 3)
+            y2, x2 = y1, x1
+        y2, x2 = 377, right
+        for y1, x1 in right_list:
+            cv2.line(overlay, (x1, y1 + 700), (x2, y2 + 700), (0, 0, 255), 3)
+            y2, x2 = y1, x1
 
         # Debug counts pour comprendre le “rien détecté”
         """
