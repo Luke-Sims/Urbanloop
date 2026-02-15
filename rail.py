@@ -88,26 +88,50 @@ def start_rail(bottom_min: int, bottom_max: int, split_x: int, edges: MatLike):
 def detect_next_one(list: List[Tuple[int, int]], edges: MatLike):
     y: int = list[-1][0] - list[-2][0]
     x: int = list[-1][1] - list[-2][1]
-    if (
+    if (  # x, y
         edges[list[-1][0] + y, list[-1][1] + x] == 255
         and (list[-1][0] + y, list[-1][1] + x) not in list
     ):
         list.append((list[-1][0] + y, list[-1][1] + x))
         print("add ", (list[-1][0] + y, list[-1][1] + x))
-    elif (
-        edges[list[-1][0], list[-1][1] + x] == 255
-        and (list[-1][0], list[-1][1] + x) not in list
+    elif (  # y-1, x-1
+        edges[list[-1][0] + y - 1, list[-1][1] + x - 1] == 255
+        and (list[-1][0] + y - 1, list[-1][1] + x - 1) not in list
     ):
-        list.append((list[-1][0], list[-1][1] + x))
-        print("add ", (list[-1][0], list[-1][1] + x))
-    elif (
-        edges[list[-1][0] + y, list[-1][1]] == 255
-        and (list[-1][0] + y, list[-1][1]) not in list
+        list.append((list[-1][0] + y - 1, list[-1][1] + x - 1))
+        print("add ", (list[-1][0] + y - 1, list[-1][1] + x - 1))
+    elif (  # y-1,x
+        edges[list[-1][0] + y - 1, list[-1][1] + x] == 255
+        and (list[-1][0] + y - 1, list[-1][1] + x) not in list
     ):
-        list.append((list[-1][0] + y, list[-1][1]))
-        print("add ", (list[-1][0] + y, list[-1][1]))
+        list.append((list[-1][0] + y - 1, list[-1][1] + x))
+        print("add ", (list[-1][0] + y - 1, list[-1][1] + x))
+    elif (  # y-1, x+1
+        edges[list[-1][0] + y - 1, list[-1][1] + x + 1] == 255
+        and (list[-1][0] + y - 1, list[-1][1] + x + 1) not in list
+    ):
+        list.append((list[-1][0] + y - 1, list[-1][1] + x + 1))
+        print("add ", (list[-1][0] + y - 1, list[-1][1] + x + 1))
+    elif (  # y, x-1
+        edges[list[-1][0] + y, list[-1][1] + x - 1] == 255
+        and (list[-1][0] + y, list[-1][1] + x - 1) not in list
+    ):
+        list.append((list[-1][0] + y, list[-1][1] + x - 1))
+        print("add ", (list[-1][0] + y, list[-1][1] + x - 1))
+    elif (  # y, x+1
+        edges[list[-1][0] + y, list[-1][1] + x + 1] == 255
+        and (list[-1][0] + y, list[-1][1] + x + 1) not in list
+    ):
+        list.append((list[-1][0] + y, list[-1][1] + x + 1))
+        print("add ", (list[-1][0] + y, list[-1][1] + x + 1))
     else:
         print("stop here")
+        final_grid = np.ones([5, 5])
+        for i in range(-2, 3):
+            for j in range(-2, 3):
+                if list[-1][0] + i < 378:
+                    final_grid[i + 2, j + 2] = edges[list[-1][0] + i, list[-1][1] + j]
+        print(final_grid)
         list.append((-1, -1))
 
 
@@ -167,58 +191,58 @@ def detect_rails(
     while left_list[-1] != (-1, -1):
         detect_next_one(left_list, edges)
     right_list: List[Tuple[int, int]] = [(377, right), (376, right)]
-    while left_list[-1] != (-1, -1):
+    while right_list[-1] != (-1, -1):
         detect_next_one(right_list, edges)
     left_list, right_list = left_list[:-1], right_list[:-1]
     print("Left_list = ", left_list)
     print("Right_list = ", right_list)
     """
-    candidates = []
-
-    if lines is not None:
-        for x1, y1r, x2, y2r in lines[:, 0]:
-            y1 = y1r + y0
-            y2 = y2r + y0
-
-            length = math.hypot(x2 - x1, y2 - y1)
-            if length < min_len:
-                continue
-
-            out_bot = x_at_y(x1, y1, x2, y2, y_bottom)
-            if out_bot is None:
-                continue
-            x_bot, m, b = out_bot
-
-            if abs(m) < min_abs_slope:
-                continue
-
-            out_top = x_at_y(x1, y1, x2, y2, y_top)
-            if out_top is None:
-                continue
-            x_top, _, _ = out_top
-
-            if not (vp_min <= x_top <= vp_max):
-                continue
-            if abs(x_top - cx_center) > max_vp_dist:
-                continue
-
-            if not (bottom_min <= x_bot <= bottom_max):
-                continue
-
-            if not (-0.2 * w <= x_bot <= 1.2 * w):
-                continue
-
-            candidates.append((x1, y1, x2, y2, length, x_bot, m))
-    left_segments, right_segments = [], []
-    for x1, y1, x2, y2, length, x_bot, m in candidates:
-        if x_bot < split_x:
-            left_segments.append((x1, y1, x2, y2, length))
-        else:
-            right_segments.append((x1, y1, x2, y2, length))
-
-    # ✅ GARDER SEULEMENT LES 2 PLUS LONGS PAR CÔTÉ
-    left_segments = sorted(left_segments, key=lambda s: s[4], reverse=True)[:2]
-    right_segments = sorted(right_segments, key=lambda s: s[4], reverse=True)[:2]
+        candidates = []
+    
+        if lines is not None:
+            for x1, y1r, x2, y2r in lines[:, 0]:
+                y1 = y1r + y0
+                y2 = y2r + y0
+    
+                length = math.hypot(x2 - x1, y2 - y1)
+                if length < min_len:
+                    continue
+    
+                out_bot = x_at_y(x1, y1, x2, y2, y_bottom)
+                if out_bot is None:
+                    continue
+                x_bot, m, b = out_bot
+    
+                if abs(m) < min_abs_slope:
+                    continue
+    
+                out_top = x_at_y(x1, y1, x2, y2, y_top)
+                if out_top is None:
+                    continue
+                x_top, _, _ = out_top
+    
+                if not (vp_min <= x_top <= vp_max):
+                    continue
+                if abs(x_top - cx_center) > max_vp_dist:
+                    continue
+    
+                if not (bottom_min <= x_bot <= bottom_max):
+                    continue
+    
+                if not (-0.2 * w <= x_bot <= 1.2 * w):
+                    continue
+    
+                candidates.append((x1, y1, x2, y2, length, x_bot, m))
+        left_segments, right_segments = [], []
+        for x1, y1, x2, y2, length, x_bot, m in candidates:
+            if x_bot < split_x:
+                left_segments.append((x1, y1, x2, y2, length))
+            else:
+                right_segments.append((x1, y1, x2, y2, length))
+    
+        # ✅ GARDER SEULEMENT LES 2 PLUS LONGS PAR CÔTÉ
+        left_segments = sorted(left_segments, key=lambda s: s[4], reverse=True)[:2]
+        right_segments = sorted(right_segments, key=lambda s: s[4], reverse=True)[:2]
     """
 
     if debug:
@@ -280,7 +304,7 @@ def detect_rails(
 
 
 def main():
-    source = "videoRgb.avi"
+    source = "videoRgb_virage.avi"
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
         raise RuntimeError(f"Impossible d'ouvrir la source vidéo : {source}")
