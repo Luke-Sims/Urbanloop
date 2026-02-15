@@ -5,51 +5,9 @@ import cv2
 import numpy as np
 from cv2.typing import MatLike
 
-
 # ----------------------------
 # Helpers
 # ----------------------------
-def ema(prev, new, alpha=0.2):
-    if prev is None:
-        return new
-    return prev * (1 - alpha) + new * alpha
-
-
-def draw_line_from_mb(img, m, b, y1, y2, color=(0, 255, 0), thickness=3):
-    if m is None or abs(m) < 1e-6:
-        return
-    x1 = int((y1 - b) / m)
-    x2 = int((y2 - b) / m)
-    cv2.line(img, (x1, int(y1)), (x2, int(y2)), color, thickness)
-
-
-def fit_weighted_line(segments):
-    if not segments:
-        return None
-
-    xs, ys, ws = [], [], []
-    for x1, y1, x2, y2, w in segments:
-        xs += [x1, x2]
-        ys += [y1, y2]
-        ws += [w, w]
-
-    X = np.array(xs, dtype=np.float32)
-    Y = np.array(ys, dtype=np.float32)
-    W = np.array(ws, dtype=np.float32)
-
-    Sw = np.sum(W)
-    Sx = np.sum(W * X)
-    Sy = np.sum(W * Y)
-    Sxx = np.sum(W * X * X)
-    Sxy = np.sum(W * X * Y)
-
-    denom = Sw * Sxx - Sx * Sx
-    if abs(denom) < 1e-6:
-        return None
-
-    m = (Sw * Sxy - Sx * Sy) / denom
-    b = (Sy - m * Sx) / Sw
-    return float(m), float(b)
 
 
 def x_at_y(x1, y1, x2, y2, y):
@@ -85,6 +43,7 @@ def start_rail(bottom_min: int, bottom_max: int, split_x: int, edges: MatLike):
 
 # TODO: approximer par polynome
 # TODO: couper approximation si ecart trop grand sur courbe
+# TODO: detecter rails via shape
 def detect_next_one(list: List[Tuple[int, int]], edges: MatLike):
     y: int = list[-1][0] - list[-2][0]
     x: int = list[-1][1] - list[-2][1]
@@ -198,40 +157,40 @@ def detect_rails(
     print("Right_list = ", right_list)
     """
         candidates = []
-    
+
         if lines is not None:
             for x1, y1r, x2, y2r in lines[:, 0]:
                 y1 = y1r + y0
                 y2 = y2r + y0
-    
+
                 length = math.hypot(x2 - x1, y2 - y1)
                 if length < min_len:
                     continue
-    
+
                 out_bot = x_at_y(x1, y1, x2, y2, y_bottom)
                 if out_bot is None:
                     continue
                 x_bot, m, b = out_bot
-    
+
                 if abs(m) < min_abs_slope:
                     continue
-    
+
                 out_top = x_at_y(x1, y1, x2, y2, y_top)
                 if out_top is None:
                     continue
                 x_top, _, _ = out_top
-    
+
                 if not (vp_min <= x_top <= vp_max):
                     continue
                 if abs(x_top - cx_center) > max_vp_dist:
                     continue
-    
+
                 if not (bottom_min <= x_bot <= bottom_max):
                     continue
-    
+
                 if not (-0.2 * w <= x_bot <= 1.2 * w):
                     continue
-    
+
                 candidates.append((x1, y1, x2, y2, length, x_bot, m))
         left_segments, right_segments = [], []
         for x1, y1, x2, y2, length, x_bot, m in candidates:
@@ -239,7 +198,7 @@ def detect_rails(
                 left_segments.append((x1, y1, x2, y2, length))
             else:
                 right_segments.append((x1, y1, x2, y2, length))
-    
+
         # ✅ GARDER SEULEMENT LES 2 PLUS LONGS PAR CÔTÉ
         left_segments = sorted(left_segments, key=lambda s: s[4], reverse=True)[:2]
         right_segments = sorted(right_segments, key=lambda s: s[4], reverse=True)[:2]
@@ -288,23 +247,23 @@ def detect_rails(
 
         # Debug counts pour comprendre le “rien détecté”
         """
-        nb_lines = 0 if lines is None else len(lines)
-        cv2.putText(
-            overlay,
-            f"lines={nb_lines} cand={len(candidates)} L={len(left_segments)} R={len(right_segments)}",
-            (15, 35),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (255, 255, 255),
-            2,
-        )
+            nb_lines = 0 if lines is None else len(lines)
+            cv2.putText(
+                overlay,
+                f"lines={nb_lines} cand={len(candidates)} L={len(left_segments)} R={len(right_segments)}",
+                (15, 35),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                2,
+            )
         """
 
     return overlay, edges
 
 
 def main():
-    source = "videoRgb_virage.avi"
+    source = "videoRgb_ligne_droite.avi"
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
         raise RuntimeError(f"Impossible d'ouvrir la source vidéo : {source}")
@@ -319,7 +278,7 @@ def main():
         if force_rotate_180:
             frame = cv2.rotate(frame, cv2.ROTATE_180)
 
-        overlay, edges = detect_rails(frame, debug=True, split_x_ratio=0.494)
+        overlay, edges = detect_rails(frame, debug=True)
 
         cv2.imshow("Rails detection (segments)", overlay)
         cv2.imshow("Edges (ROI)", edges)
