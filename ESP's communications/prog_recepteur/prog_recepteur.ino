@@ -58,7 +58,7 @@ void loop() {
   }
 
   // Sécurité fail-safe
-  bool perteSignal = (millis() - dernierSignalMillis > 5000);
+  bool perteSignal = (millis() - dernierSignalMillis > 1100);
 
   // Logique LEDs
   if (obstacleDetecte || perteSignal) {

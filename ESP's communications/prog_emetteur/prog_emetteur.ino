@@ -73,7 +73,7 @@ void loop() {
     
     display.display();
     
-    delay(2000);
+    delay(1000);
   }
   
   // Fin de cycle
@@ -84,5 +84,5 @@ void loop() {
   display.display();
   
   Serial.println("--- Cycle terminé ---");
-  delay(1000);
+  delay(50);
 }
