@@ -2,6 +2,9 @@
 
 Projet de véhicule autonome utilisant la vision par ordinateur pour la détection des rails et des obstacles, avec communication sans fil IrDA.
 
+## Présentation
+Retrouvez la présentation complète du projet ici : [Lien vers la présentation](https://docs.google.com/presentation/d/1uMGySIxdCz8Myz7OVVhOK5eT4uFbThtZT8y8aCtLFhE/edit?usp=sharing)
+
 ## Structure du projet
 
 ```
