@@ -1,4 +1,3 @@
-import math
 from typing import List, Tuple
 
 import cv2
@@ -23,17 +22,21 @@ def x_at_y(x1, y1, x2, y2, y):
     return x, m, b
 
 
-def start_rail(bottom_min: int, bottom_max: int, split_x: int, edges: MatLike):
+def start_rail(
+    bottom_min: int, bottom_max: int, split_x: int, edges: MatLike, bottom: int
+):
     # Image dimension = (378 * 1920)
     # bottom left border = edges[377][864]
     # bottom right border =  edges[377][1036]
     left = split_x
     right = split_x
-    while right < bottom_max and edges[377][right] != 255:
+    while right < bottom_max and edges[bottom][right] != 255:
         right += 1
+        # print("grid at ", right, " = ")
+        # print_grid([(bottom, right)], edges)
     if right == bottom_max:
         print("Right border not found")
-    while left > bottom_min and edges[377][left] != 255:
+    while left > bottom_min and edges[bottom][left] != 255:
         left -= 1
     if left == bottom_min:
         print("Left border not found")
@@ -85,13 +88,16 @@ def detect_next_one(list: List[Tuple[int, int]], edges: MatLike):
         print("add ", (list[-1][0] + y, list[-1][1] + x + 1))
     else:
         print("stop here")
-        final_grid = np.ones([5, 5])
-        for i in range(-2, 3):
-            for j in range(-2, 3):
-                if list[-1][0] + i < 378:
-                    final_grid[i + 2, j + 2] = edges[list[-1][0] + i, list[-1][1] + j]
-        print(final_grid)
+        print_grid(list, edges)
         list.append((-1, -1))
+
+
+def print_grid(list, edges):
+    final_grid = np.ones([10, 10])
+    for i in range(-4, 5):
+        for j in range(-4, 5):
+            if list[-1][0] + i <= list[0][0]:
+                final_grid[i + 4, j + 4] = edges[list[-1][0] + i, list[-1][1] + j]
 
 
 # ----------------------------
@@ -102,7 +108,7 @@ def detect_rails(
     debug=False,
     canny_low=60,
     canny_high=140,
-    roi_top_ratio=0.65,
+    roi_top_ratio=0,
     min_len=60,
     max_gap=25,
     slope_min=0.35,
@@ -131,28 +137,28 @@ def detect_rails(
     lines = None
     cx_center = w * 0.5
     y_top = y0
-    y_bottom = h - 1
+    y_bottom = h - 1 - 10  # 10 to avoid black zone at the bottom in some videos
 
     # Point de fuite
-    vp_min = w * 0.488  # c'est quoi ces valeurs ?? 0.488 il sort d'ou ?
+    vp_min = w * 0.488
     vp_max = w * 0.503
-    max_vp_dist = w * 0.22
 
-    # Bande bas
-    bottom_min = int(w * 0.45)
-    bottom_max = int(w * 0.54)
-
-    min_abs_slope = max(slope_min, 0.45)
     split_x = int(w * split_x_ratio)
 
-    left, right = start_rail(bottom_min, bottom_max, split_x, edges)
-    left_list: List[Tuple[int, int]] = [(377, left), (376, left)]
+    # Bande bas
+    bottom_min = split_x - int(0.1 * w)
+    bottom_max = split_x + int(0.1 * w)
+
+    left, right = start_rail(bottom_min, bottom_max, split_x, edges, y_bottom)
+    left_list: List[Tuple[int, int]] = [(y_bottom, left), (y_bottom - 1, left)]
     while left_list[-1] != (-1, -1):
         detect_next_one(left_list, edges)
-    right_list: List[Tuple[int, int]] = [(377, right), (376, right)]
+    right_list: List[Tuple[int, int]] = [(y_bottom, right), (y_bottom - 1, right)]
     while right_list[-1] != (-1, -1):
         detect_next_one(right_list, edges)
     left_list, right_list = left_list[:-1], right_list[:-1]
+    # fit_left = fit_deg1(left_list)
+    # fit_right = fit_deg1(right_list)
     print("Left_list = ", left_list)
     print("Right_list = ", right_list)
     """
@@ -236,16 +242,23 @@ def detect_rails(
             (255, 255, 255),
             2,
         )
-        y2, x2 = 377, left
+        y2, x2 = y_bottom, left
         for y1, x1 in left_list:
             cv2.line(overlay, (x1, y1 + y0), (x2, y2 + y0), (255, 0, 0), 3)
             y2, x2 = y1, x1
-        y2, x2 = 377, right
+        y2, x2 = y_bottom, right
         for y1, x1 in right_list:
             cv2.line(overlay, (x1, y1 + y0), (x2, y2 + y0), (0, 0, 255), 3)
             y2, x2 = y1, x1
 
+        """
+        iy2, ix2 = 377, left
+        for y1, x1 in fit_left:  # fit left
+            iy1, ix1 = int(y1.real), int(x1.real)
+            cv2.line(overlay, (ix1, iy1 + y0), (ix2, iy2 + y0), (255, 0, 0), 3)
+            y2, x2 = y1, x1
         # Debug counts pour comprendre le “rien détecté”
+        """
         """
             nb_lines = 0 if lines is None else len(lines)
             cv2.putText(
@@ -258,8 +271,9 @@ def detect_rails(
                 2,
             )
         """
-
-    return overlay, edges
+    center = (left_list[0][1] + right_list[0][1]) / 2
+    split_x_ratio = center / w if abs(center - split_x) < 10 else split_x_ratio
+    return (overlay, edges, split_x_ratio)
 
 
 def main():
@@ -269,7 +283,7 @@ def main():
         raise RuntimeError(f"Impossible d'ouvrir la source vidéo : {source}")
 
     force_rotate_180 = True
-
+    split_x_ratio = 0.50
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -277,9 +291,22 @@ def main():
 
         if force_rotate_180:
             frame = cv2.rotate(frame, cv2.ROTATE_180)
+        overlay, edges, split_x_ratio = detect_rails(
+            frame, debug=True, split_x_ratio=split_x_ratio
+        )
+        print("split_x_ratio ", split_x_ratio)
+        """
+            gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            list_contours = cv2.findContours(
+                gray_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )[-2]
+            print("list contours = ", list_contours)
+            # cv2.imshow("findContours", list_contours)
+            canvas = np.zeros_like(gray_image)
+            cv2.drawContours(canvas, list_contours, -1, (255, 255, 255), 1)
 
-        overlay, edges = detect_rails(frame, debug=True)
-
+            cv2.imshow("Rails detection (segments)", canvas)  # overlay
+        """
         cv2.imshow("Rails detection (segments)", overlay)
         cv2.imshow("Edges (ROI)", edges)
 
